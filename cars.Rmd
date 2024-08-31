@@ -1,0 +1,315 @@
+---
+title: "Geographical Analysis - Vehicle sales"
+author: "Oscar"
+date: "2024-08-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+library(skimr)
+library(janitor)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(tidyr)
+library(tidytext)
+library(hrbrthemes)
+library(plotly)
+library(knitr)
+library(scales)
+
+
+cars <- read_csv("car_prices.csv")
+
+```
+
+## Introduction
+
+The [Vehicle Sales and Market Trends Dataset](https://www.kaggle.com/datasets/syedanwarafridi/vehicle-sales-data/data) provides a comprehensive collection of information pertaining to the sales transactions of various vehicles.
+
+The objective of this analysis is to explore sales distribution across different states.
+
+The objectives are clear, the questions to abroad are the following:
+
+-   Which states have the highest and lowest car sales?
+-   How does the average selling price differ by state?
+-   Are certain car makes or models more popular in specific states?
+
+## Data Preprocessing
+
+### Meta data
+
+A short preview of the data frame.
+
+```{r preview}
+head(cars)
+
+```
+
+Missing values, minimums, maximums, means and percentiles and more...
+
+```{r details}
+skim_without_charts(cars)
+
+```
+
+Column names
+
+```{r name_columns}
+colnames(cars)
+```
+
+### Cleaning
+
+Deleting observations that contains states with incorrect values, such as '3vwd17aj5fm297123'. And observations with empty values on the columns: seller, sellingprice and model.
+
+```{r cleaning}
+
+cars2 <- cars %>% 
+  filter(nchar(state) <= 2) %>%
+  drop_na(saledate, seller, sellingprice, model)
+
+nrow(cars) #Observations before
+nrow(cars2) #Observations after
+
+```
+
+## Sales Distribution Across States
+
+Calculate the number of sold cars in each state.
+
+```{r states}
+table(cars2$state)
+```
+
+Visualizing the distribution of sales per state.
+
+```{r plotting_states}
+ggplot(cars2, aes(x = reorder(state, table(state)[state]))) +
+  geom_bar() +
+  labs(title = "Number of Cars Sold by State", x = "State", y = "Number of Cars Sold")
+```
+
+
+### **Which states have the highest and lowest car sales?**
+Answer = _The top 5 states with highest sales are: Fl, Ca, Pa, Tx and Ga. On the other hand, the top 5 states with lowest sales are: Al, Ns, Ok, Nm and Ab._
+
+## Average Selling Price by State
+
+Find the average selling price for cars in each state.
+
+```{r average_price, results = 'asis'}
+avg_price_by_state <- aggregate(sellingprice ~ state, data = cars2, FUN = mean)
+avg <- avg_price_by_state[order(avg_price_by_state$sellingprice, decreasing=TRUE),]
+kable(avg, caption = "Average selling price by state")
+```
+
+Compare prices across states.
+
+```{r avg_plot}
+
+#Setting the plot for the average selling price for cars in each state.
+avg_plot <- ggplot(avg_price_by_state, aes(x = reorder(state, sellingprice), y = sellingprice, 
+                                           text = paste("State: ", state, "<br>",
+                                                        "Average Price: $", round(sellingprice, 2)))) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Selling Price by State", x = "State", y = "Average Selling Price") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+interactive_plot <- ggplotly(avg_plot, tooltip = "text")
+
+# Disable zoom, pan, and other controls
+interactive_plot <- interactive_plot %>%
+  config(displayModeBar = FALSE,  
+         scrollZoom = FALSE,     
+         showTips = FALSE)   
+
+# Display the customized interactive plot
+interactive_plot
+
+
+```
+
+
+### **How does the average selling price differ by state?**
+Answer = _The state with the highest average selling price is On with \$18,232 and the state with the lowest average selling price is Nm with $6,442._
+
+## State-wise Analysis of Car Makes and Models
+
+Identify the most popular car makes and models in each state.
+
+```{r makes-models, echo=TRUE, message=FALSE, warning=FALSE}
+# Select the top 6 states by total sales
+top_states <- cars2 %>%
+  group_by(state) %>%
+  summarise(total_sales = n()) %>%
+  top_n(6, total_sales) %>%
+  pull(state)
+
+# Select the top 10 makes by total sales
+top_makes <- cars2 %>%
+  group_by(make) %>%
+  summarise(total_sales = n()) %>%
+  top_n(10, total_sales) %>%
+  pull(make)
+
+# Filter the dataset to include only the top states and top makes
+sales <- cars2 %>%
+  filter(state %in% top_states, make %in% top_makes) %>%
+  group_by(make, state) %>%
+  summarise(counter = n()) %>%
+  ungroup()
+```
+
+Visualizing the top 10 car makes and models for the top 6 states
+
+```{r bars_makes-models, echo=TRUE, message=TRUE, warning=TRUE}
+
+# Plotting with vertical bars
+sales %>%
+  mutate(make_fact = make,
+         make = reorder_within(make, counter, state)) %>%
+  ggplot(aes(make, counter, fill = make_fact)) +  
+  geom_col(show.legend = FALSE) +
+  scale_fill_brewer(palette = "Set3") +  
+  scale_x_reordered() +  
+  facet_wrap(~state, scales = "free_x") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  
+```
+
+Heat-map limited to just the top 20 car makes and states, identify the top car makes and states based on the number of cars sold. Similar process as above.
+
+```{r heat_map, echo=TRUE, message=FALSE, warning=FALSE}
+# Calculate total sales by car make and state
+total_make_sales <- cars2 %>%
+  group_by(make) %>%
+  summarise(total_sales = n()) %>%
+  arrange(desc(total_sales)) %>%
+  top_n(20, total_sales) %>%
+  pull(make)
+
+total_state_sales <- cars2 %>%
+  group_by(state) %>%
+  summarise(total_sales = n()) %>%
+  arrange(desc(total_sales)) %>%
+  top_n(20, total_sales) %>%
+  pull(state)
+
+# Filter the Data for Top 20 Car Makes and States
+filtered_sales <- cars2 %>%
+  filter(make %in% total_make_sales & state %in% total_state_sales) %>%
+  group_by(state, make) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+# Create the tooltip text
+filtered_sales <- filtered_sales %>%
+  mutate(text = paste0("State: ", state, "\n",
+                       "Make: ", make, "\n",
+                       "Cars Sold: ", count))
+
+# Create the Heatmap
+p <- ggplot(filtered_sales, aes(x = state, y = make, fill = count, text = text)) + 
+  geom_tile() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  theme_ipsum() +
+  labs(title = "Popularity of Top 20 Car Makes by Top 20 States",
+       x = "State",
+       y = "Car Make",
+       fill = "Cars Sold")
+
+# Adding interactivity with plotly
+ggplotly(p, tooltip = "text")
+
+```
+
+### **Are certain car makes or models more popular in specific states?**
+
+Answer = _The visualizations show that certain car makes indeed have regional popularity. For instance, Toyota is more popular in Florida (8,713 cars sold) than in California (4,663 cars sold)._
+
+## Conclusion
+
+The data suggests that *car preferences can vary significantly across states*. To better understand what influences buyers, a deeper investigation is required. Variables such as price, year, odometer, and color should be considered.
+
+## Extra findings
+
+As a extra information, some trends have been found during the analysis.
+
+**Transmission**: _Automatic transmissions are increasingly popular in all states, representing 96% of all car sales._
+```{r transmission_trends}
+
+# Select the top 12 states by total sales
+top_states <- cars2 %>%
+  group_by(state) %>%
+  summarise(total_sales = n()) %>%
+  top_n(12, total_sales) %>%
+  pull(state)
+
+# Droping N/A transmission values
+cars_f <- cars2 %>%
+  filter(state %in% top_states) %>%
+  drop_na(transmission)
+
+# Plotting
+ggplot(data = cars_f) +
+  geom_bar(mapping = aes(x = transmission, fill = transmission)) +  
+  facet_wrap(~state) +
+  labs(title = "Car Sales by Transmission Type in Top 12 States",
+       x = "Transmission Type",
+       y = "Number of Cars Sold") 
+
+
+
+```
+```{r total_transmissions_sells}
+ggplot(data = cars_f) +
+  geom_bar(mapping = aes(y = transmission, fill = transmission)) +  
+  labs(title = "Total car sales by transmission",
+       x = "Transmission Type",
+       y = "Number of Cars Sold") +
+      scale_x_continuous(labels = comma)
+
+# Calculate the percentage of automatic transmission sales
+auto_percentage <- mean(cars_f$transmission == "automatic") * 100
+(auto_percentage)
+
+```
+**Price - Sells**: _The majority of vehicles sold are priced between $1,701 and $12,00, with a 44% of the total sales._
+
+```{r price_range_by_total_sales}
+
+# Calculate the percentages for each price range
+quartiles2 <- cut(cars2$sellingprice,
+                 breaks = c(1, 1700, 12200, 18300, 230000),
+                 labels = c("$1,700", "$12,200", "$18,300", "$230,000"),
+                 include.lowest = TRUE)
+
+cars_prices <- cars2 %>%
+  mutate(price_quartile = quartiles2)
+
+price_distribution <- cars_prices %>%
+  group_by(price_quartile) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = round((count / sum(count)) * 100, 1))
+
+# Create the plot
+ggplot(price_distribution, aes(x = 1, y = percentage, fill = price_quartile)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_text(aes(label = paste0(percentage, "%")), position = position_stack(vjust = 0.5), color = "white") +
+  labs(title = "Distribution of Car Sales by Price Range",
+       x = "Range of car price",
+       y = "Percentage of Total Sales") +
+  scale_fill_brewer(palette = "Set2") 
+
+# Calculate the percentage of sales within the price range $1,701 to $12,200, to verify.
+price_percentage <- mean(cars2$sellingprice >= 1701 & cars2$sellingprice <= 12200) * 100
+price_percentage
+
+
+```
+
+
