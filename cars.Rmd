@@ -9,19 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r packages, include=FALSE}
-library(skimr)
-library(janitor)
-library(ggplot2)
-library(dplyr)
-library(tidyverse)
-library(tidyr)
-library(tidytext)
-library(hrbrthemes)
-library(plotly)
-library(knitr)
-library(scales)
-
+```{r file, include=FALSE}
 
 cars <- read_csv("car_prices.csv")
 
