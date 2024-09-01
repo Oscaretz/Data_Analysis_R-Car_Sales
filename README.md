@@ -18,7 +18,22 @@ This project analyzes car sales data from a large dataset containing over 550,00
 1. **Clone the Repository**: 
    ```sh
    git clone https://github.com/Oscaretz/Data_Analysis_R-Car_Sales.git
-2. **Install Dependencies**: Make sure you have R installed, the packages to use are going to be set automatically running the RMarkdown file. 
+2. **Install Dependencies**: Make sure you have R installed, then install the necessary packages:
+```sh
+   install.packages(c(
+  "skimr",
+  "janitor",
+  "ggplot2",
+  "dplyr",
+  "tidyverse",
+  "tidyr",
+  "tidytext",
+  "hrbrthemes",
+  "plotly",
+  "knitr",
+  "scales"
+))
+```
 3. **Run the RMarkdown File**: Open cars.Rmd in RStudio and knit it to see the analysis in action. Alternatively, open cars.html for a ready-made version of the analysis.
 
 ## 💡Results and Insights
