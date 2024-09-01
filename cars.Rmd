@@ -21,7 +21,7 @@ The [Vehicle Sales and Market Trends Dataset](https://www.kaggle.com/datasets/sy
 
 The objective of this analysis is to explore sales distribution across different states.
 
-The objectives are clear, the questions to abroad are the following:
+The key questions addressed in this study are:
 
 -   Which states have the highest and lowest car sales?
 -   How does the average selling price differ by state?
